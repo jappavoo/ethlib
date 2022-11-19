@@ -56,20 +56,18 @@ int main(int argc, char **argv)
 
   if (useSelect) {
     fprintf(stderr, "NYI: ebblib picloop\n");
-    goto done;
   } else {
     if (ethlib_nic_poll(NULL, // use defaut call-back
 			NULL, // use default call-back arg
 			-1)   // poll until error
 	< 0) {
       fprintf(stderr, "ERROR: ethlib_nic_poll failed\n");
-      goto done;
     }
   }
     
-  
+  ethlib_nic_close();  
+
  done:
-  ethlib_nic_close();
   printf("**ETHLIBTEST: END\n");
   return 0;
 }
