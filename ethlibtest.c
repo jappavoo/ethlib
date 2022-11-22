@@ -5,13 +5,26 @@
 #include <unistd.h>
 #include "ethlib.h"
 
+
+uint64_t pkt_count = 0;
+uint64_t pkt_count_threshold=0;
+
 void usage(int argc, char **argv)
 {
-  fprintf(stderr, "%s [-l] [-s] [dev]\n"
+  fprintf(stderr, "%s [-l] [-s] [-c val] [dev]\n"
 	          "  -l : list devices\n"
 	          "  -s : use select on fd\n"
+	          "  -c <val>: use count callback with val\n"
 	          " dev : device to use default is any\n"
 	  , argv[0]);
+}
+
+static
+void pkt_ctr(u_char *user, const struct pcap_pkthdr *h,
+		     const u_char *bytes)
+{
+  pkt_count ++;
+  if (pkt_count_threshold!=0 && (pkt_count % pkt_count_threshold)==0) fprintf(stderr, "+");
 }
 
 int main(int argc, char **argv)
@@ -20,10 +33,12 @@ int main(int argc, char **argv)
   char *dev = NULL;
   int useSelect = 0;
   char c;
+  int count = -1;
+  pcap_handler cb = NULL;
   
   opterr = 0;
 
-  while ((c = getopt (argc, argv, "hls")) != -1) {
+  while ((c = getopt (argc, argv, "hlsc:C:")) != -1) {
     switch (c)
       {
       case 's':
@@ -32,6 +47,13 @@ int main(int argc, char **argv)
       case 'l':
 	ethlib_nic_list();
 	return 0;
+	break;
+      case 'c':
+	cb = pkt_ctr;
+	pkt_count_threshold = atoll(optarg);
+	break;
+      case 'C':
+	count = atoi(optarg);
 	break;
       case 'h':
 	usage(argc, argv);
@@ -57,9 +79,9 @@ int main(int argc, char **argv)
   if (useSelect) {
     fprintf(stderr, "NYI: ebblib picloop\n");
   } else {
-    if (ethlib_nic_poll(NULL, // use defaut call-back
+    if (ethlib_nic_poll(cb, // use defaut call-back
 			NULL, // use default call-back arg
-			-1)   // poll until error
+			count)   // poll until error
 	< 0) {
       fprintf(stderr, "ERROR: ethlib_nic_poll failed\n");
     }
@@ -68,6 +90,7 @@ int main(int argc, char **argv)
   ethlib_nic_close();  
 
  done:
+  if (cb != NULL) printf("pkt_count = %ull\n", pkt_count);
   printf("**ETHLIBTEST: END\n");
   return 0;
 }
